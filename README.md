@@ -1,1 +1,1 @@
-# Thanksgiving2026
+# Thanksgiving
