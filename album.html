@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>跨裝置同步相簿</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 20px; }
+    .gallery img { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h2>共享雲端相簿</h2>
+  <input type="file" id="fileInput" accept="image/*">
+  <button id="uploadBtn">上傳照片</button>
+  <span id="status"></span>
+
+  <div class="gallery" id="gallery"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://gstatic.com";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://gstatic.com";
+
+    // 1. 貼上你的 Firebase 設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCPVjPY5hly3ydPI8uafyuzX1gzqK6LDBo",
+      authDomain: "tinahsu-4aaae.firebaseapp.com",
+      projectId: "tinahsu-4aaae",
+      storageBucket: "tinahsu-4aaae.firebasestorage.app",
+      messagingSenderId: "723746836283",
+      appId: "1:723746836283:web:c3493c79051f8b1833311e"
+    };
+
+    // 2. 填入 Cloudinary 設定
+    const CLOUD_NAME = "ldszhesb";
+    const UPLOAD_PRESET = "Tinahsu1016";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const photosRef = collection(db, "shared_photos");
+
+    // 3. 上傳照片至 Cloudinary 並將網址存入 Firebase
+    document.getElementById("uploadBtn").addEventListener("click", async () => {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return alert("請先選擇照片");
+
+      const status = document.getElementById("status");
+      status.textContent = "上傳中...";
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", UPLOAD_PRESET);
+
+      try {
+        const res = await fetch(`https://cloudinary.com{CLOUD_NAME}/image/upload`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+
+        await addDoc(photosRef, {
+          url: data.secure_url,
+          createdAt: serverTimestamp()
+        });
+
+        status.textContent = "上傳完成！";
+        document.getElementById("fileInput").value = "";
+      } catch (err) {
+        status.textContent = "上傳失敗：" + err.message;
+      }
+    });
+
+    // 4. 即時監聽資料庫，任何裝置上傳都會自動顯示
+    const q = query(photosRef, orderBy("createdAt", "desc"));
+    onSnapshot(q, (snapshot) => {
+      const gallery = document.getElementById("gallery");
+      gallery.innerHTML = "";
+      snapshot.forEach((doc) => {
+        const img = document.createElement("img");
+        img.src = doc.data().url;
+        gallery.appendChild(img);
+      });
+    });
+  </script>
+</body>
+</html>
